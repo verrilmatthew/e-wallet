@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COBOL E-Wallet Simulator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+
+  :root {
+    --green: #00ff88;
+    --green-dim: #00aa55;
+    --green-dark: #003322;
+    --bg: #050f0a;
+    --panel: #070e09;
+    --border: #0a2a15;
+    --amber: #ffaa00;
+    --red: #ff4444;
+    --cyan: #00ffcc;
+    --text: #c8ffd8;
+    --dim: #447755;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--green);
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,255,100,0.015) 2px,
+      rgba(0,255,100,0.015) 4px
+    );
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  h1 {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(14px, 3vw, 22px);
+    letter-spacing: 4px;
+    color: var(--green);
+    text-shadow: 0 0 20px var(--green), 0 0 40px var(--green-dim);
+    text-align: center;
+    margin-bottom: 4px;
+  }
+
+  .subtitle {
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 3px;
+    text-align: center;
+    margin-bottom: 24px;
+  }
+
+  .main-grid {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 16px;
+    width: 100%;
+    max-width: 980px;
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 16px;
+    position: relative;
+  }
+
+  .panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--green-dim), transparent);
+  }
+
+  .panel-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--green-dim);
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* USER LIST */
+  .user-card {
+    background: rgba(0,255,136,0.03);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .user-card:hover, .user-card.active {
+    border-color: var(--green-dim);
+    background: rgba(0,255,136,0.07);
+    box-shadow: 0 0 12px rgba(0,255,136,0.1);
+  }
+
+  .user-name { font-size: 13px; color: var(--text); margin-bottom: 3px; }
+  .user-phone { font-size: 10px; color: var(--dim); margin-bottom: 6px; }
+  .user-balance {
+    font-family: 'Orbitron', monospace;
+    font-size: 14px;
+    color: var(--green);
+    text-shadow: 0 0 10px rgba(0,255,136,0.4);
+  }
+  .user-pin { font-size: 10px; color: var(--dim); margin-top: 4px; }
+
+  /* TERMINAL */
+  .terminal-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .terminal {
+    background: #020a05;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 14px;
+    height: 300px;
+    overflow-y: auto;
+    font-size: 12px;
+    line-height: 1.7;
+  }
+
+  .terminal::-webkit-scrollbar { width: 4px; }
+  .terminal::-webkit-scrollbar-track { background: var(--bg); }
+  .terminal::-webkit-scrollbar-thumb { background: var(--green-dim); }
+
+  .t-line { margin-bottom: 2px; }
+  .t-line.divider { color: var(--dim); }
+  .t-line.success { color: var(--green); text-shadow: 0 0 8px rgba(0,255,136,0.5); }
+  .t-line.error { color: var(--red); }
+  .t-line.info { color: var(--cyan); }
+  .t-line.prompt { color: var(--amber); }
+  .t-line.header {
+    color: var(--green);
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+  }
+
+  .cursor {
+    display: inline-block;
+    width: 8px;
+    height: 14px;
+    background: var(--green);
+    animation: blink 1s infinite;
+    vertical-align: middle;
+    margin-left: 2px;
+  }
+
+  @keyframes blink { 0%,50% { opacity: 1; } 51%,100% { opacity: 0; } }
+
+  /* CONTROLS */
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .btn {
+    background: transparent;
+    border: 1px solid var(--green-dim);
+    color: var(--green);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    padding: 8px 4px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.15s;
+    border-radius: 1px;
+  }
+
+  .btn:hover {
+    background: rgba(0,255,136,0.08);
+    border-color: var(--green);
+    box-shadow: 0 0 12px rgba(0,255,136,0.15);
+  }
+
+  .btn:active { transform: scale(0.97); }
+  .btn.danger { border-color: var(--red); color: var(--red); }
+  .btn.danger:hover { background: rgba(255,68,68,0.08); }
+  .btn.special { border-color: var(--amber); color: var(--amber); }
+  .btn.special:hover { background: rgba(255,170,0,0.08); }
+
+  /* INPUT MODAL */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+
+  .modal-overlay.show { display: flex; }
+
+  .modal {
+    background: var(--panel);
+    border: 1px solid var(--green-dim);
+    border-radius: 2px;
+    padding: 24px;
+    width: 340px;
+    box-shadow: 0 0 40px rgba(0,255,136,0.15);
+  }
+
+  .modal h3 {
+    font-family: 'Orbitron', monospace;
+    font-size: 12px;
+    color: var(--green);
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .modal label {
+    font-size: 10px;
+    color: var(--dim);
+    display: block;
+    margin-bottom: 4px;
+    letter-spacing: 1px;
+  }
+
+  .modal input, .modal select {
+    width: 100%;
+    background: #020a05;
+    border: 1px solid var(--border);
+    color: var(--green);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    padding: 8px 10px;
+    margin-bottom: 12px;
+    border-radius: 1px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .modal input:focus, .modal select:focus {
+    border-color: var(--green-dim);
+    box-shadow: 0 0 8px rgba(0,255,136,0.1);
+  }
+
+  .modal-btns { display: flex; gap: 8px; margin-top: 4px; }
+  .modal-btns .btn { flex: 1; }
+
+  /* COBOL CODE VIEW */
+  .code-panel {
+    background: #020a05;
+    border: 1px solid var(--border);
+    font-size: 11px;
+    line-height: 1.6;
+    padding: 12px;
+    height: 200px;
+    overflow-y: auto;
+    border-radius: 2px;
+  }
+
+  .code-panel::-webkit-scrollbar { width: 4px; }
+  .code-panel::-webkit-scrollbar-thumb { background: var(--green-dim); }
+
+  .code-line { display: flex; gap: 12px; }
+  .code-num { color: var(--dim); min-width: 30px; text-align: right; font-size: 10px; }
+  .kw { color: #ff8844; }
+  .str { color: var(--cyan); }
+  .num { color: var(--amber); }
+  .cmt { color: #335533; }
+  .var { color: var(--text); }
+  .highlight-line { background: rgba(0,255,136,0.05); }
+
+  /* STATS BAR */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .stat-box {
+    background: rgba(0,255,136,0.03);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 10px;
+    text-align: center;
+  }
+
+  .stat-value {
+    font-family: 'Orbitron', monospace;
+    font-size: 16px;
+    color: var(--green);
+    text-shadow: 0 0 10px rgba(0,255,136,0.3);
+  }
+
+  .stat-label { font-size: 9px; color: var(--dim); letter-spacing: 2px; margin-top: 3px; }
+
+  /* LOGIN STATE */
+  .login-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border: 1px solid;
+    font-size: 9px;
+    letter-spacing: 2px;
+    border-radius: 1px;
+  }
+
+  .login-badge.on { border-color: var(--green); color: var(--green); }
+  .login-badge.off { border-color: var(--dim); color: var(--dim); }
+
+  @media (max-width: 700px) {
+    .main-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<h1>◈ COBOL E-WALLET SYSTEM ◈</h1>
+<p class="subtitle">SIMULASI INTERAKTIF · GnuCOBOL 3.2 COMPATIBLE</p>
+
+<div class="main-grid">
+  <!-- LEFT: User Panel -->
+  <div>
+    <div class="panel">
+      <div class="panel-title">▸ DAFTAR PENGGUNA</div>
+      <div id="userList"></div>
+    </div>
+
+    <div class="panel" style="margin-top:12px">
+      <div class="panel-title">▸ STATISTIK SISTEM</div>
+      <div class="stats-bar">
+        <div class="stat-box">
+          <div class="stat-value" id="statTotal">0</div>
+          <div class="stat-label">TOTAL TRX</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value" id="statUsers">3</div>
+          <div class="stat-label">PENGGUNA</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value" id="statLogin">–</div>
+          <div class="stat-label">AKTIF</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:12px">
+      <div class="panel-title">▸ COBOL SOURCE (EXCERPT)</div>
+      <div class="code-panel" id="codeView"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Terminal -->
+  <div class="terminal-wrapper">
+    <div class="panel">
+      <div class="panel-title">
+        ▸ TERMINAL OUTPUT &nbsp;&nbsp;
+        <span id="loginBadge" class="login-badge off">NOT LOGGED IN</span>
+      </div>
+      <div class="terminal" id="terminal"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">▸ OPERASI</div>
+      <div class="controls" id="controls">
+        <button class="btn special" onclick="doLogin()">[ LOGIN ]</button>
+        <button class="btn" onclick="cmdSaldo()" id="btnSaldo" disabled>[ CEK SALDO ]</button>
+        <button class="btn" onclick="cmdTopup()" id="btnTopup" disabled>[ TOP UP ]</button>
+        <button class="btn" onclick="cmdTransfer()" id="btnTransfer" disabled>[ TRANSFER ]</button>
+        <button class="btn" onclick="cmdTarik()" id="btnTarik" disabled>[ TARIK TUNAI ]</button>
+        <button class="btn" onclick="cmdRiwayat()" id="btnRiwayat" disabled>[ RIWAYAT ]</button>
+        <button class="btn danger" onclick="doLogout()" id="btnLogout" style="grid-column:1/-1" disabled>[ KELUAR / LOGOUT ]</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h3 id="modalTitle">INPUT</h3>
+    <div id="modalBody"></div>
+    <div class="modal-btns">
+      <button class="btn" onclick="modalConfirm()">[ KONFIRMASI ]</button>
+      <button class="btn danger" onclick="closeModal()">[ BATAL ]</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  STATE
+// ============================================================
+const users = [
+  { id: 1001, name: 'Budi Santoso',  phone: '081234567890', balance: 5000000, pin: '123456' },
+  { id: 1002, name: 'Siti Rahayu',   phone: '082345678901', balance: 2500000, pin: '654321' },
+  { id: 1003, name: 'Andi Wijaya',   phone: '083456789012', balance:  750000, pin: '112233' },
+];
+
+let currentUser = null;
+let transactions = [];
+let trxSeq = 10000001;
+let modalCallback = null;
+
+// ============================================================
+//  TERMINAL
+// ============================================================
+const term = document.getElementById('terminal');
+
+function tPrint(text, cls='') {
+  const d = document.createElement('div');
+  d.className = 't-line ' + cls;
+  d.textContent = text;
+  term.appendChild(d);
+  term.scrollTop = term.scrollHeight;
+}
+
+function tDiv() { tPrint('==================================================', 'divider'); }
+function tSub()  { tPrint('--------------------------------------------------', 'divider'); }
+
+function tClear() { term.innerHTML = ''; }
+
+// ============================================================
+//  INIT
+// ============================================================
+window.onload = () => {
+  renderUsers();
+  renderCode();
+  welcome();
+  updateStats();
+};
+
+function welcome() {
+  tClear();
+  tDiv();
+  tPrint('     *** COBOL E-WALLET v1.0 ***', 'header');
+  tPrint('        Dompet Digital Anda', 'header');
+  tDiv();
+  tPrint(' ');
+  tPrint('  Program: EWALLET.cbl', 'info');
+  tPrint('  Compiler: GnuCOBOL 3.2', 'info');
+  tPrint('  Status: RUNNING', 'success');
+  tPrint(' ');
+  tPrint('  Silakan klik [ LOGIN ] untuk masuk.', 'prompt');
+  tPrint(' ');
+}
+
+// ============================================================
+//  RENDER USERS
+// ============================================================
+function renderUsers() {
+  const ul = document.getElementById('userList');
+  ul.innerHTML = '';
+  users.forEach((u, i) => {
+    const d = document.createElement('div');
+    d.className = 'user-card' + (currentUser && currentUser.id === u.id ? ' active' : '');
+    d.innerHTML = `
+      <div class="user-name">${u.name}</div>
+      <div class="user-phone">${u.phone}</div>
+      <div class="user-balance">Rp ${fmt(u.balance)}</div>
+      <div class="user-pin">PIN: ${u.pin} &nbsp; ID: ${u.id}</div>`;
+    ul.appendChild(d);
+  });
+}
+
+function fmt(n) {
+  return parseFloat(n).toLocaleString('id-ID', { minimumFractionDigits: 2 });
+}
+
+// ============================================================
+//  LOGIN / LOGOUT
+// ============================================================
+function doLogin() {
+  if (currentUser) { tPrint('  Sudah login! Logout dulu.', 'error'); return; }
+  openModal('LOGIN', `
+    <label>Nomor HP</label>
+    <input id="inp-phone" placeholder="08xxxxxxxxxx" maxlength="13">
+    <label>PIN (6 digit)</label>
+    <input id="inp-pin" type="password" placeholder="------" maxlength="6">
+  `, () => {
+    const phone = document.getElementById('inp-phone').value.trim();
+    const pin   = document.getElementById('inp-pin').value.trim();
+    const u = users.find(x => x.phone === phone && x.pin === pin);
+    if (!u) {
+      tPrint(' ');
+      tPrint('  PERFORM 0200-LOGIN', 'info');
+      if (users.find(x => x.phone === phone)) {
+        tPrint('  *** PIN SALAH! Coba lagi. ***', 'error');
+      } else {
+        tPrint('  *** No. HP tidak terdaftar! ***', 'error');
+      }
+      tPrint(' ');
+      return;
+    }
+    currentUser = u;
+    tPrint(' ');
+    tPrint('  PERFORM 0200-LOGIN', 'info');
+    tPrint('  MOVE WS-LOOP-IDX TO WS-CURRENT-USER', 'info');
+    tPrint('  Login berhasil! Selamat datang,', 'success');
+    tPrint('  ' + u.name, 'success');
+    tPrint(' ');
+    updateUI();
+    closeModal();
+  });
+}
+
+function doLogout() {
+  currentUser = null;
+  tClear();
+  tDiv();
+  tPrint('  Terima kasih telah menggunakan COBOL E-Wallet!', 'success');
+  tDiv();
+  tPrint(' ');
+  tPrint('  STOP RUN.', 'info');
+  updateUI();
+}
+
+// ============================================================
+//  MENU OPERATIONS
+// ============================================================
+function cmdSaldo() {
+  if (!currentUser) return;
+  tPrint(' ');
+  tPrint('  PERFORM 2000-CEK-SALDO', 'info');
+  tSub();
+  tPrint('     INFORMASI SALDO', 'header');
+  tSub();
+  tPrint('  Nama   : ' + currentUser.name);
+  tPrint('  No. HP : ' + currentUser.phone);
+  tPrint('  Saldo  : Rp ' + fmt(currentUser.balance), 'success');
+  tSub();
+  tPrint(' ');
+}
+
+function cmdTopup() {
+  if (!currentUser) return;
+  openModal('TOP UP SALDO', `
+    <label>Jumlah Top Up (Rp)</label>
+    <input id="inp-amount" type="number" min="10000" max="10000000" placeholder="Contoh: 500000">
+    <div style="font-size:10px;color:#447755;margin-top:-8px;">Maks: Rp 10.000.000</div>
+  `, () => {
+    const amt = parseFloat(document.getElementById('inp-amount').value);
+    tPrint(' ');
+    tPrint('  PERFORM 3000-TOP-UP', 'info');
+    if (!amt || amt <= 0) {
+      tPrint('  *** Jumlah tidak valid! ***', 'error'); return;
+    }
+    if (amt > 10000000) {
+      tPrint('  *** Maksimal Top Up Rp 10.000.000 ***', 'error'); return;
+    }
+    currentUser.balance += amt;
+    recordTrx('TOP-UP', amt, 'Top Up Saldo');
+    tPrint('  ADD WS-INPUT-AMOUNT TO WS-USER-BALANCE(WS-CURRENT-USER)', 'info');
+    tPrint('  *** Top Up BERHASIL! ***', 'success');
+    tPrint('  Saldo baru: Rp ' + fmt(currentUser.balance), 'success');
+    tPrint(' ');
+    renderUsers();
+    updateStats();
+    closeModal();
+  });
+}
+
+function cmdTransfer() {
+  if (!currentUser) return;
+  openModal('TRANSFER', `
+    <label>No. HP Tujuan</label>
+    <select id="inp-target">
+      <option value="">-- Pilih Penerima --</option>
+      ${users.filter(u => u.id !== currentUser.id)
+        .map(u => `<option value="${u.phone}">${u.name} (${u.phone})</option>`).join('')}
+    </select>
+    <label>Jumlah Transfer (Rp)</label>
+    <input id="inp-amount" type="number" min="1000" placeholder="Contoh: 200000">
+    <div style="font-size:10px;color:#447755;margin-top:-8px;">Saldo: Rp ${fmt(currentUser.balance)}</div>
+  `, () => {
+    const targetPhone = document.getElementById('inp-target').value;
+    const amt = parseFloat(document.getElementById('inp-amount').value);
+    const target = users.find(u => u.phone === targetPhone);
+
+    tPrint(' ');
+    tPrint('  PERFORM 4000-TRANSFER', 'info');
+
+    if (!target) { tPrint('  *** Pilih penerima! ***', 'error'); return; }
+    if (!amt || amt <= 0) { tPrint('  *** Jumlah tidak valid! ***', 'error'); return; }
+    if (amt > currentUser.balance) { tPrint('  *** Saldo tidak mencukupi! ***', 'error'); return; }
+
+    currentUser.balance -= amt;
+    target.balance += amt;
+    recordTrx('TRANSFER', amt, 'Transfer ke ' + target.name.substring(0, 10));
+
+    tPrint('  SUBTRACT WS-INPUT-AMOUNT FROM WS-USER-BALANCE(WS-CURRENT-USER)', 'info');
+    tPrint('  ADD WS-INPUT-AMOUNT TO WS-USER-BALANCE(WS-TARGET)', 'info');
+    tPrint('  *** Transfer BERHASIL! ***', 'success');
+    tPrint('  Ke: ' + target.name, 'success');
+    tPrint('  Jumlah: Rp ' + fmt(amt), 'success');
+    tPrint('  Saldo tersisa: Rp ' + fmt(currentUser.balance), 'success');
+    tPrint(' ');
+    renderUsers();
+    updateStats();
+    closeModal();
+  });
+}
+
+function cmdTarik() {
+  if (!currentUser) return;
+  openModal('TARIK TUNAI', `
+    <label>Jumlah Penarikan (Rp)</label>
+    <input id="inp-amount" type="number" min="50000" max="5000000" placeholder="Contoh: 300000">
+    <div style="font-size:10px;color:#447755;margin-top:-8px;">Maks: Rp 5.000.000 | Saldo: Rp ${fmt(currentUser.balance)}</div>
+  `, () => {
+    const amt = parseFloat(document.getElementById('inp-amount').value);
+    tPrint(' ');
+    tPrint('  PERFORM 5000-TARIK-TUNAI', 'info');
+    if (!amt || amt <= 0) { tPrint('  *** Jumlah tidak valid! ***', 'error'); return; }
+    if (amt > 5000000) { tPrint('  *** Maks penarikan Rp 5.000.000 ***', 'error'); return; }
+    if (amt > currentUser.balance) { tPrint('  *** Saldo tidak mencukupi! ***', 'error'); return; }
+
+    currentUser.balance -= amt;
+    recordTrx('TARIK', amt, 'Tarik Tunai');
+
+    tPrint('  SUBTRACT WS-INPUT-AMOUNT FROM WS-USER-BALANCE(WS-CURRENT-USER)', 'info');
+    tPrint('  *** Penarikan BERHASIL! ***', 'success');
+    tPrint('  Jumlah: Rp ' + fmt(amt), 'success');
+    tPrint('  Saldo tersisa: Rp ' + fmt(currentUser.balance), 'success');
+    tPrint(' ');
+    renderUsers();
+    updateStats();
+    closeModal();
+  });
+}
+
+function cmdRiwayat() {
+  if (!currentUser) return;
+  tPrint(' ');
+  tPrint('  PERFORM 6000-RIWAYAT', 'info');
+  tSub();
+  tPrint('     RIWAYAT TRANSAKSI (5 TERAKHIR)', 'header');
+  tSub();
+
+  const myTrx = transactions.slice(0, 5);
+  if (myTrx.length === 0) {
+    tPrint('  Belum ada transaksi.', 'prompt');
+  } else {
+    myTrx.forEach((t, i) => {
+      const col = t.type === 'TOP-UP' ? 'success' : (t.type === 'TRANSFER' ? 'prompt' : 'error');
+      tPrint(`  ${i+1}. [${t.type}] ${t.date}`, col);
+      tPrint(`     ${t.desc}`, col);
+      tPrint(`     Rp ${fmt(t.amount)} | Ref: ${t.no}`, col);
+    });
+  }
+  tSub();
+  tPrint(' ');
+}
+
+// ============================================================
+//  RECORD TRANSACTION
+// ============================================================
+function recordTrx(type, amount, desc) {
+  transactions.unshift({
+    no: trxSeq++,
+    type,
+    amount,
+    date: '2026-05-12',
+    desc
+  });
+  if (transactions.length > 5) transactions = transactions.slice(0, 5);
+  updateStats();
+}
+
+// ============================================================
+//  UI UPDATE
+// ============================================================
+function updateUI() {
+  const loggedIn = !!currentUser;
+  ['btnSaldo','btnTopup','btnTransfer','btnTarik','btnRiwayat','btnLogout']
+    .forEach(id => document.getElementById(id).disabled = !loggedIn);
+
+  const badge = document.getElementById('loginBadge');
+  badge.className = 'login-badge ' + (loggedIn ? 'on' : 'off');
+  badge.textContent = loggedIn ? `LOGGED IN: ${currentUser.name}` : 'NOT LOGGED IN';
+
+  document.querySelector('.btn.special').disabled = loggedIn;
+  renderUsers();
+}
+
+function updateStats() {
+  document.getElementById('statTotal').textContent = transactions.length;
+  document.getElementById('statLogin').textContent = currentUser ? currentUser.name.split(' ')[0] : '–';
+}
+
+// ============================================================
+//  MODAL
+// ============================================================
+function openModal(title, body, cb) {
+  document.getElementById('modalTitle').textContent = '▸ ' + title;
+  document.getElementById('modalBody').innerHTML = body;
+  document.getElementById('modal').classList.add('show');
+  modalCallback = cb;
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('show');
+  modalCallback = null;
+}
+
+function modalConfirm() {
+  if (modalCallback) modalCallback();
+}
+
+document.getElementById('modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal')) closeModal();
+});
+
+// ============================================================
+//  COBOL CODE VIEW
+// ============================================================
+function renderCode() {
+  const lines = [
+    ['',  ''],
+    ['1',  '<span class="cmt">      *--- CEK SALDO ---*</span>'],
+    ['2',  '<span class="kw">       2000-CEK-SALDO.</span>'],
+    ['3',  '           <span class="kw">MOVE</span> <span class="var">WS-USER-BALANCE</span>(<span class="var">WS-CURRENT-USER</span>)'],
+    ['4',  '               <span class="kw">TO</span> <span class="var">WS-DISPLAY-BALANCE</span>'],
+    ['5',  '           <span class="kw">DISPLAY</span> <span class="str">\'Saldo: Rp \'</span> <span class="var">WS-DISPLAY-BALANCE</span>'],
+    ['6',  ''],
+    ['7',  '<span class="cmt">      *--- TOP UP ---*</span>'],
+    ['8',  '<span class="kw">       3000-TOP-UP.</span>'],
+    ['9',  '           <span class="kw">ACCEPT</span> <span class="var">WS-INPUT-AMOUNT</span>'],
+    ['10', '           <span class="kw">IF</span> <span class="var">WS-INPUT-AMOUNT</span> &gt; <span class="num">0</span>'],
+    ['11', '               <span class="kw">ADD</span> <span class="var">WS-INPUT-AMOUNT</span>'],
+    ['12', '                   <span class="kw">TO</span> <span class="var">WS-USER-BALANCE</span>(<span class="var">WS-CURRENT-USER</span>)'],
+    ['13', '           <span class="kw">END-IF</span>'],
+    ['14', ''],
+    ['15', '<span class="cmt">      *--- TRANSFER ---*</span>'],
+    ['16', '<span class="kw">       4000-TRANSFER.</span>'],
+    ['17', '           <span class="kw">SUBTRACT</span> <span class="var">WS-INPUT-AMOUNT</span> <span class="kw">FROM</span>'],
+    ['18', '               <span class="var">WS-USER-BALANCE</span>(<span class="var">WS-CURRENT-USER</span>)'],
+    ['19', '           <span class="kw">ADD</span> <span class="var">WS-INPUT-AMOUNT</span> <span class="kw">TO</span>'],
+    ['20', '               <span class="var">WS-USER-BALANCE</span>(<span class="var">WS-TARGET-USER-IDX</span>)'],
+    ['21', ''],
+    ['22', '<span class="cmt">      *--- RIWAYAT ---*</span>'],
+    ['23', '<span class="kw">       6000-RIWAYAT.</span>'],
+    ['24', '           <span class="kw">PERFORM VARYING</span> <span class="var">WS-LOOP-IDX</span>'],
+    ['25', '               <span class="kw">FROM</span> <span class="num">1</span> <span class="kw">BY</span> <span class="num">1</span>'],
+    ['26', '               <span class="kw">UNTIL</span> <span class="var">WS-LOOP-IDX</span> &gt; <span class="var">WS-TRX-COUNT</span>'],
+    ['27', '               <span class="kw">DISPLAY</span> <span class="var">WS-TRX-TYPE</span>(<span class="var">WS-LOOP-IDX</span>)'],
+    ['28', '           <span class="kw">END-PERFORM</span>'],
+    ['29', ''],
+    ['30', '           <span class="kw">STOP RUN.</span>'],
+  ];
+
+  const cv = document.getElementById('codeView');
+  cv.innerHTML = lines.map(([n, c]) =>
+    `<div class="code-line"><span class="code-num">${n}</span><span>${c}</span></div>`
+  ).join('');
+}
+</script>
+</body>
+</html>
